@@ -1,6 +1,6 @@
 {
   "name": "react-vue-computed",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Vue's computed mental model brought to React via Proxy and useSyncExternalStore",
   "author": "Aly <alyzidan.android@gmail.com>",
   "homepage": "https://github.com/<your-handle>/react-vue-computed#readme",
