@@ -1,0 +1,29 @@
+{
+  "name": "react-vue-computed",
+  "version": "1.0.0",
+  "description": "Vue's computed mental model brought to React via Proxy and useSyncExternalStore",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": ["react", "vue", "computed", "reactivity", "proxy", "state"],
+  "author": "Your Name",
+  "license": "MIT",
+  "peerDependencies": {
+    "react": ">=18.0.0"
+  }
+}
