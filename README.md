@@ -1,116 +1,151 @@
-# react-vue-computed 🚀
+# react-vue-computed
 
-Bring Vue's elegant, push-based reactivity mental model directly into React. Say goodbye to manual dependency arrays (`useMemo` / `useCallback`) and stale closures.
+Vue 3's `computed` mental model brought into React: auto-tracked dependencies, lazy memoization, and re-renders that fire only when the derived value actually changes.
 
-Built with JS Proxies and React's native `useSyncExternalStore`.
+Built on JavaScript `Proxy` and React's `useSyncExternalStore`. No dependency arrays.
 
-## ✨ Features
+## Features
 
-- **Zero Dependency Arrays:** Dependencies are auto-tracked at runtime.
-- **Lazy Evaluation & Memoization:** Computeds only re-run when their tracked dependencies mutate.
-- **Writable Computeds:** Supports two-way derived state out of the box.
-- **React-Native Integration:** Triggers re-renders *only* when the evaluated result actually changes (Deep equality support).
-- **TypeScript Ready:** First-class types included.
+- **No dependency arrays.** Dependencies are auto-tracked at runtime by reading reactive sources inside the getter.
+- **Lazy memoization.** The getter only re-runs when one of its tracked dependencies has actually changed.
+- **Reference-equal re-render skipping.** A derived value that comes out reference-equal to the previous one (`Object.is`) does not trigger a React re-render, even if upstream state changed.
+- **Writable computed.** Pass `{ get, set }` to get a `[value, setValue]` tuple for two-way derived state.
+- **TypeScript-first.** Full overload-based typing, no casts needed at call sites.
 
-## 📦 Installation
+## Installation
 
 ```bash
 npm install react-vue-computed
-# or
-yarn add react-vue-computed
-# or
-pnpm add react-vue-computed
 ```
 
-## 🚀 Quick Start (Read-Only)
+Requires React 18 or newer (for `useSyncExternalStore`).
 
-No more guessing what goes into the `useMemo` array. Just use `ref` and `useComputed`!
+## Why this exists
+
+React Compiler closes much of the manual-memoization gap (`useMemo` / `useCallback` deps arrays). What it does not change is the underlying model: components are pull-based, memoization happens at the component level, and a state write triggers re-renders for any component reading that state through the React tree.
+
+This library gives you push-based reactivity with **property-level** dependency tracking. A write to `state.foo` only invalidates derivations that actually read `foo` — not anything that reads `state` more broadly. Useful for cross-cutting application state read by many components.
+
+If you want all of Vue's reactivity API (`watch`, `watchEffect`, `effectScope`, etc.) you want a fuller-featured library; this one is intentionally scoped to `ref`, `reactive`, and computed-via-hook.
+
+## Usage
+
+### Read-only computed
 
 ```tsx
 import { ref, useComputed } from 'react-vue-computed';
 
-// Define state outside or inside your components
 const firstName = ref('John');
 const lastName = ref('Doe');
-const basePrice = ref(100);
 
-export function UserProfile() {
-  // Auto-tracks firstName and lastName. 
-  // No dependency array needed!
+export function Greeting() {
   const fullName = useComputed(() => `${firstName.value} ${lastName.value}`);
-  
-  const finalPrice = useComputed(() => basePrice.value * 1.15); // +15% tax
-
-  return (
-    <div>
-      <h2>Welcome, {fullName}!</h2>
-      <p>Total: ${finalPrice}</p>
-      
-      <button onClick={() => firstName.value = 'Jane'}>
-        Change Name
-      </button>
-    </div>
-  );
+  return <h1>Hello, {fullName}</h1>;
 }
 ```
 
-## ✍️ Writable Computed (Two-way Binding)
+No deps array. The hook subscribes to `firstName` and `lastName` automatically because they were read inside the getter. Mutating either will trigger a re-render of `Greeting` if and only if the joined string actually changed.
 
-Need a derived state that you can also update? Pass an object with `get` and `set`.
+### Reactive objects
+
+For object-shaped state, use `reactive` instead of multiple refs:
 
 ```tsx
-import { useState, useEffect } from 'react';
+import { reactive, useComputed } from 'react-vue-computed';
+
+const cart = reactive({
+  items: [] as Array<{ price: number; qty: number }>,
+  taxRate: 0.15,
+});
+
+export function CartTotal() {
+  const total = useComputed(() => {
+    const subtotal = cart.items.reduce((s, i) => s + i.price * i.qty, 0);
+    return subtotal * (1 + cart.taxRate);
+  });
+  return <p>Total: ${total.toFixed(2)}</p>;
+}
+```
+
+`reactive()` returns a deep `Proxy`. Property reads are tracked, writes (including `delete`) trigger anything subscribed to that specific property.
+
+### Writable computed
+
+Pass `{ get, set }` to get a `[value, setValue]` tuple:
+
+```tsx
 import { ref, useComputed } from 'react-vue-computed';
 
-const first = ref('John');
-const last = ref('Doe');
+const basePrice = ref(100);
+const TAX_RATE = 1.15;
 
-export function NameEditor() {
-  const [computedFullName, setComputedFullName] = useComputed({
-    get: () => `${first.value} ${last.value}`.trim(),
-    set: (newValue) => {
-      const parts = newValue.trim().split(/\s+/);
-      first.value = parts[0] || '';
-      last.value = parts.slice(1).join(' ') || '';
-    }
+export function PriceEditor() {
+  const [withTax, setWithTax] = useComputed({
+    get: () => basePrice.value * TAX_RATE,
+    set: (v: number) => {
+      basePrice.value = v / TAX_RATE;
+    },
   });
 
-  // Best Practice for Controlled Inputs:
-  // Use a local state buffer to prevent typing issues (like losing trailing spaces)
-  const [inputValue, setInputValue] = useState(computedFullName);
-
-  useEffect(() => {
-    setInputValue(computedFullName);
-  }, [computedFullName]);
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    setInputValue(val);           // Update UI instantly
-    setComputedFullName(val);     // Update reactivity engine in the background
-  };
-
   return (
-    <input 
-      value={inputValue} 
-      onChange={handleChange} 
-      placeholder="Enter full name" 
+    <input
+      type="number"
+      value={withTax}
+      onChange={(e) => setWithTax(Number(e.target.value))}
     />
   );
 }
 ```
 
-## 🧠 How it Works (The Mental Model)
+When the setter writes to `basePrice`, anything else deriving from `basePrice` updates too.
 
-Unlike React's default pull-based rendering, this library uses a push-based reactivity engine:
-1. **Proxies (`ref`, `reactive`):** Wrap your data to track exactly when and where they are read.
-2. **Auto-Tracking:** When `useComputed` runs your getter, it subscribes to any `ref` you touched.
-3. **`useSyncExternalStore`:** Bridges our custom reactivity engine with React's render cycle, ensuring tearing-free UI updates and bailing out of renders if the derived value hasn't changed.
+### Helpers
 
-## ⚠️ Important Edge Cases
+```ts
+import { ref, isRef, unref, type Ref } from 'react-vue-computed';
 
-*   **Don't read React Props directly inside `useComputed`:** The engine only tracks `ref` and `reactive` objects. If you need to derive a computed from a React prop, sync the prop to a `ref` first inside a `useEffect`.
-*   **Return Primitives when possible:** If your `useComputed` returns a new object/array reference every time, React will trigger a re-render. 
+const r = ref(7);
+isRef(r);        // true
+isRef(7);        // false
+unref(r);        // 7
+unref(7);        // 7
+```
 
-## 📝 License
+## Constraints (read this part)
+
+This library only tracks values read through `ref()` or `reactive()`. There is no magic that intercepts plain variables.
+
+**Do not capture React props or local state in the getter** and expect them to invalidate the cache. They won't:
+
+```tsx
+function Broken({ multiplier }: { multiplier: number }) {
+  // ❌ multiplier change will NOT invalidate the cache,
+  //    because multiplier is not a reactive source.
+  const result = useComputed(() => count.value * multiplier);
+}
+```
+
+The getter closure stays "live" — it always sees the latest `multiplier` when it runs — but the cache is only invalidated when a tracked reactive source changes. If `count` doesn't change, the cache won't recompute, and the prop change won't be reflected.
+
+This is the same constraint Vue users follow. Either lift the dependency into the reactive system, or don't use `useComputed` for that derivation:
+
+```tsx
+function Working({ multiplier }: { multiplier: number }) {
+  // Just compute it directly; React Compiler / useMemo handle the rest.
+  const result = count.value /* if reading reactive in render works for you */ * multiplier;
+}
+```
+
+**Returning fresh objects every recompute will trigger re-renders.** `useSyncExternalStore` compares snapshots with `Object.is`. A getter that returns `{ ...state }` produces a new reference every run. If you want stable identity, return the underlying reactive object directly, or wrap with your own equality check.
+
+## How it works
+
+Three pieces:
+
+1. **`ref` / `reactive`** wrap state. Reads call an internal `track()` that adds the currently running effect to a per-source `Set<Effect>`. Writes call `trigger()` that runs every effect in the set.
+2. **`ComputedImpl`** is itself an effect. When its getter runs, the global `activeEffect` is set to its own effect, so any reactive read inside the getter subscribes the computed. Re-runs are lazy and only happen on the next `.value` read after a dep change. Cleanup removes stale subscriptions before each re-run, so conditional reads work correctly.
+3. **`useComputed`** wires the computed into React via `useSyncExternalStore`. The store's `subscribe` adds React's notify callback; `getSnapshot` returns the lazily-computed value. React's built-in `Object.is` comparison on snapshots is what gives you the "skip re-render if value unchanged" behavior.
+
+## License
 
 MIT

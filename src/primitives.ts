@@ -1,11 +1,15 @@
 import { track, trigger, type Effect } from './core';
 
-export interface Ref<T> { value: T }
+const REF_FLAG = Symbol('ref');
+
+export interface Ref<T> {
+  value: T;
+}
 
 export function ref<T>(initial: T): Ref<T> {
   const dep = new Set<Effect>();
   let value = initial;
-  return {
+  const r = {
     get value() {
       track(dep);
       return value;
@@ -16,19 +20,34 @@ export function ref<T>(initial: T): Ref<T> {
       trigger(dep);
     },
   };
+  Object.defineProperty(r, REF_FLAG, { value: true, enumerable: false });
+  return r;
 }
 
-const reactiveCache = new WeakMap<object, object>();
+export function isRef<T = unknown>(value: unknown): value is Ref<T> {
+  return !!(value && (value as Record<symbol, unknown>)[REF_FLAG] === true);
+}
+
+export function unref<T>(value: T | Ref<T>): T {
+  return isRef<T>(value) ? value.value : (value as T);
+}
+
+const rawToProxy = new WeakMap<object, object>();
+const proxyToRaw = new WeakMap<object, object>();
 
 export function reactive<T extends object>(target: T): T {
-  const cached = reactiveCache.get(target);
+  if (proxyToRaw.has(target)) return target;
+  const cached = rawToProxy.get(target);
   if (cached) return cached as T;
 
   const depMap = new Map<string | symbol, Set<Effect>>();
-  
+
   const getDep = (key: string | symbol) => {
     let dep = depMap.get(key);
-    if (!dep) { dep = new Set(); depMap.set(key, dep); }
+    if (!dep) {
+      dep = new Set();
+      depMap.set(key, dep);
+    }
     return dep;
   };
 
@@ -44,8 +63,15 @@ export function reactive<T extends object>(target: T): T {
       if (!Object.is(old, value)) trigger(getDep(key));
       return result;
     },
+    deleteProperty(obj, key) {
+      const had = Object.prototype.hasOwnProperty.call(obj, key);
+      const result = Reflect.deleteProperty(obj, key);
+      if (had && result) trigger(getDep(key));
+      return result;
+    },
   }) as T;
 
-  reactiveCache.set(target, proxy);
+  rawToProxy.set(target, proxy);
+  proxyToRaw.set(proxy, target);
   return proxy;
 }

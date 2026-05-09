@@ -1,2 +1,2 @@
-export { ref, reactive } from './primitives';
+export { ref, reactive, isRef, unref, type Ref } from './primitives';
 export { useComputed } from './useComputed';

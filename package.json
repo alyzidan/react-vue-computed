@@ -1,10 +1,20 @@
 {
   "name": "react-vue-computed",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Vue's computed mental model brought to React via Proxy and useSyncExternalStore",
+  "author": "Aly <alyzidan.android@gmail.com>",
+  "homepage": "https://github.com/<your-handle>/react-vue-computed#readme",
+  "bugs": {
+    "url": "https://github.com/<your-handle>/react-vue-computed/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/<your-handle>/react-vue-computed.git"
+  },
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
+  "sideEffects": false,
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -18,12 +28,32 @@
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
     "prepublishOnly": "npm run build"
   },
-  "keywords": ["react", "vue", "computed", "reactivity", "proxy", "state"],
-  "author": "Your Name",
+  "keywords": [
+    "react",
+    "vue",
+    "computed",
+    "reactivity",
+    "proxy",
+    "state"
+  ],
   "license": "MIT",
   "peerDependencies": {
     "react": ">=18.0.0"
+  },
+  "devDependencies": {
+    "@testing-library/react": "^16.0.1",
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "happy-dom": "^15.7.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "tsup": "^8.3.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
   }
 }

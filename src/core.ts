@@ -3,7 +3,7 @@ export type Effect = {
   deps: Set<Set<Effect>>;
 };
 
-export let activeEffect: Effect | null = null;
+let activeEffect: Effect | null = null;
 
 export function track(dep: Set<Effect>): void {
   if (!activeEffect) return;

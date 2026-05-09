@@ -5,7 +5,7 @@ export class ComputedImpl<T> {
   private cached!: T;
   private subs = new Set<() => void>();
   private effect: Effect;
-  private running = false; 
+  private running = false;
 
   constructor(private getter: () => T) {
     this.effect = {
@@ -26,9 +26,9 @@ export class ComputedImpl<T> {
         runWithEffect(this.effect, () => {
           this.cached = this.getter();
         });
+        this.dirty = false;
       } finally {
         this.running = false;
-        this.dirty = false;
       }
     }
     return this.cached;
